@@ -1,3 +1,4 @@
+//api/images/[folder].js
 export default async function handler(req, res) {
   // Set CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
