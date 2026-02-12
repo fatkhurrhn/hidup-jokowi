@@ -137,7 +137,7 @@ export default function FolderAllWithTagsPage() {
             {/* 🔥 HEADER GALLERY COMPONENT */}
             <HeaderGallery
                 title="Galeri Semuanya"
-                subtitle="Koleksi foto dan video dari berbagai kegiatan"
+                // subtitle="Koleksi foto dan video dari berbagai kegiatan"
                 totalItems={media.length}
                 totalPhoto={media.filter(m => m.resource_type === 'image').length}
                 totalVideo={media.filter(m => m.resource_type === 'video').length}

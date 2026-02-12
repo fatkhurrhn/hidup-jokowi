@@ -1,75 +1,154 @@
-// src/Umum.jsx
+// src/FolderAllWithTagsPage.jsx
 import React, { useState, useEffect } from 'react';
+import MasonryGrid from '../components/MasonryGrid';
+import MediaModal from '../components/MediaModal';
+import HeaderGallery from '../components/HeaderGallery';
 
-export default function Umum() {
+export default function FolderAllWithTagsPage() {
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedMedia, setSelectedMedia] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(0); // 🔥 BUAT INDEX NAVIGASI
+
+  // 🔥 HARDCODE TAGS
+  const [selectedTag, setSelectedTag] = useState('all');
+  const availableTags = [
+    { id: 'all', label: 'Semua' },
+    { id: 'felfest2', label: 'Felfest2' },
+    { id: 'umum', label: 'Umum' },
+    { id: 'ketua', label: 'Ketua' }
+  ];
 
   const cloudName = 'dka0pnghx';
 
+  // 🔥 FUNGSI UNTUK NGACAKIN FOTO
+  const shuffleArray = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  // 🔥 FUNGSI UNTUK THUMBNAIL VIDEO
+  const getVideoThumbnail = (publicId) => {
+    return `https://res.cloudinary.com/${cloudName}/video/upload/so_0,w_600,h_900,c_limit/${publicId}.jpg`;
+  };
+
   useEffect(() => {
-    const fetchGallery = async () => {
+    const fetchAllMedia = async () => {
       try {
         setLoading(true);
-        const res = await fetch('/api/images/Umum');
+
+        const url = `/api/images/ALL`;
+        console.log('🔍 Fetching URL:', url);
+
+        const res = await fetch(url);
         const data = await res.json();
 
         if (!res.ok) throw new Error('Gagal konek ke server');
         if (!data.success) throw new Error(data.error);
 
-        const items = data.resources.map(item => {
-          // KALAU VIDEO: thumbnail dari frame pertama (so_0)
+        let items = data.resources.map(item => {
           if (item.resource_type === 'video') {
             return {
               ...item,
-              thumbnail: `https://res.cloudinary.com/${cloudName}/video/upload/so_0,w_300,h_300,c_fill/${item.public_id}.jpg`
+              thumbnail: getVideoThumbnail(item.public_id),
+              tags: item.tags || []
             };
           }
-
-          // KALAU FOTO: thumbnail biasa
           return {
             ...item,
-            thumbnail: `https://res.cloudinary.com/${cloudName}/image/upload/w_300,h_300,c_fill/${item.public_id}`
+            thumbnail: `https://res.cloudinary.com/${cloudName}/image/upload/w_600,h_900,c_limit/${item.public_id}`,
+            tags: item.tags || []
           };
         });
 
+        if (selectedTag !== 'all') {
+          items = items.filter(item =>
+            item.tags && item.tags.includes(selectedTag)
+          );
+        }
+
+        items = shuffleArray(items);
         setMedia(items);
         setError(null);
+
       } catch (err) {
+        console.error('❌ Error:', err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchGallery();
-  }, []);
+    fetchAllMedia();
+  }, [selectedTag]);
 
-  // LOADING
+  // 🔥 HANDLE KLIK ITEM - SET INDEX DAN MEDIA
+  const handleItemClick = (item, index) => {
+    setCurrentIndex(index);
+    setSelectedMedia(item);
+  };
+
+  // 🔥 HANDLE NEXT PREVIEW
+  const handleNext = () => {
+    if (currentIndex < media.length - 1) {
+      const nextIndex = currentIndex + 1;
+      setCurrentIndex(nextIndex);
+      setSelectedMedia(media[nextIndex]);
+    }
+  };
+
+  // 🔥 HANDLE PREV PREVIEW
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      const prevIndex = currentIndex - 1;
+      setCurrentIndex(prevIndex);
+      setSelectedMedia(media[prevIndex]);
+    }
+  };
+
+  const downloadFile = async (fileUrl, filename) => {
+    try {
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'download';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-700">Loading gallery...</p>
+          <div className="w-12 h-12 border-4 border-gray-200 border-t-black rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-gray-600">Memuat media...</p>
         </div>
       </div>
     );
   }
 
-  // ERROR
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="bg-white p-8 max-w-md w-full text-center">
           <div className="text-5xl mb-4">❌</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Gagal Load</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600"
+            className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800"
           >
             Coba Lagi
           </button>
@@ -78,100 +157,41 @@ export default function Umum() {
     );
   }
 
-  // EMPTY
-  if (media.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md text-center">
-          <div className="text-6xl mb-4">📁</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Folder Kosong</h2>
-          <p className="text-gray-600">Belum ada foto/video di folder "Umum"</p>
-        </div>
-      </div>
-    );
-  }
-
-  // GALLERY
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <span>📸</span> Galeri Umum
-          </h1>
-          <span className="bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm font-medium">
-            {media.length} Item
-          </span>
-        </div>
-      </div>
+    <div className="min-h-screen bg-white">
+      <HeaderGallery
+        title="Galeri Semuanya"
+        totalItems={media.length}
+        totalPhoto={media.filter(m => m.resource_type === 'image').length}
+        totalVideo={media.filter(m => m.resource_type === 'video').length}
+        tags={availableTags}
+        selectedTag={selectedTag}
+        onTagChange={setSelectedTag}
+      />
 
-      {/* Grid */}
-      <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {media.map((item) => (
-          <div
-            key={item.public_id}
-            onClick={() => setSelectedMedia(item)}
-            className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer overflow-hidden"
-          >
-            {/* Thumbnail - VIDEO pake frame, FOTO pake gambar */}
-            <div className="aspect-square bg-gray-200">
-              <img
-                src={item.thumbnail}
-                alt={item.public_id}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-              {/* Badge video */}
-              {item.resource_type === 'video' && (
-                <div className="relative -mt-8 mr-2 flex justify-end">
-                  <span className="bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                    <span>🎬</span> Video
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+      <MasonryGrid
+        items={media}
+        onItemClick={handleItemClick}  // 🔥 PAKAI HANDLE BARU
+      />
 
-      {/* Modal Preview (sama seperti sebelumnya) */}
-      {selectedMedia && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedMedia(null)}
+      <MediaModal
+        media={selectedMedia}
+        onClose={() => setSelectedMedia(null)}
+        onDownload={downloadFile}
+        onNext={handleNext}  // 🔥 PROPS BARU
+        onPrev={handlePrev}  // 🔥 PROPS BARU
+        hasNext={currentIndex < media.length - 1}  // 🔥 PROPS BARU
+        hasPrev={currentIndex > 0}  // 🔥 PROPS BARU
+        isVideoMode={selectedMedia?.resource_type === 'video'} // 🔥 PROPS BARU
+      />
+
+      {media.length > 0 && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-6 w-12 h-12 bg-black hover:bg-gray-800 text-white rounded-full shadow-lg transition-all flex items-center justify-center text-2xl"
         >
-          <div
-            className="max-w-5xl w-full bg-white rounded-lg overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-end p-2 bg-gray-100">
-              <button
-                onClick={() => setSelectedMedia(null)}
-                className="p-1 hover:bg-gray-200 rounded-full"
-              >
-                <span className="text-2xl">&times;</span>
-              </button>
-            </div>
-
-            <div className="bg-black flex items-center justify-center p-2">
-              {selectedMedia.resource_type === 'video' ? (
-                <video
-                  src={selectedMedia.secure_url}
-                  controls
-                  autoPlay
-                  className="max-h-[70vh] max-w-full"
-                />
-              ) : (
-                <img
-                  src={selectedMedia.secure_url}
-                  alt={selectedMedia.public_id}
-                  className="max-h-[70vh] max-w-full object-contain"
-                />
-              )}
-            </div>
-          </div>
-        </div>
+          ↑
+        </button>
       )}
     </div>
   );
